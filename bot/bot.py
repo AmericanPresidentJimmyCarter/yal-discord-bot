@@ -159,9 +159,9 @@ if bs_path.is_file():
 
 
 intents = discord.Intents(
-    messages=True,
-    dm_messages=True,
-    guild_messages=True,
+    messages=False,
+    dm_messages=False,
+    guild_messages=False,
     message_content=True,
 )
 
@@ -216,6 +216,8 @@ async def chat(
         top_p=top_p)
     if sid is None:
         await interaction.followup.send('Failed!')
+    else:
+        await interaction.followup.send('Success!')
 
 
 @client.event
