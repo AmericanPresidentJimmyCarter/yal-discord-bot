@@ -49,6 +49,7 @@ wget https://huggingface.co/decapoda-research/llama-13b-hf-int4/resolve/main/lla
 5. Fire up the bot.
 
 ```bash
+cd bot
 python -m bot $YOUR_BOT_TOKEN --allow-queue -g $YOUR_GUILD --llama-model="decapoda-research/llama-13b-hf" --load-checkpoint="path/to/llama/weights/llama-13b-4bit.pt"
 ```
 
