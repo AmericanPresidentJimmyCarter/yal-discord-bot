@@ -1,0 +1,8 @@
+PyNaCl
+discord.py
+aiohttp
+torch
+detoxify
+ftfy
+tqdm
+async-timeout

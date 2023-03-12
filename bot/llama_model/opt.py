@@ -3,33 +3,37 @@ import time
 import torch
 import torch.nn as nn
 
-from gptq import *
-from modelutils import *
-from quant import *
+from llama_engine.gptq import *
+from .modelutils import *
+from .quant import *
 
 
-def get_llama(model):
+def get_opt(model):
     import torch
     def skip(*args, **kwargs):
         pass
     torch.nn.init.kaiming_uniform_ = skip
     torch.nn.init.uniform_ = skip
     torch.nn.init.normal_ = skip
-    from transformers import LLaMAForCausalLM
-    model = LLaMAForCausalLM.from_pretrained(model, torch_dtype='auto')
-    model.seqlen = 2048
+    from transformers import OPTForCausalLM
+    model = OPTForCausalLM.from_pretrained(model, torch_dtype='auto')
+    model.seqlen = model.config.max_position_embeddings
     return model
 
 @torch.no_grad()
-def llama_sequential(model, dataloader, dev):
+def opt_sequential(model, dataloader, dev):
     print('Starting ...')
 
     use_cache = model.config.use_cache
     model.config.use_cache = False
-    layers = model.model.layers
+    layers = model.model.decoder.layers
 
-    model.model.embed_tokens = model.model.embed_tokens.to(dev)
-    model.model.norm = model.model.norm.to(dev)
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(dev) 
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(dev)
+    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+        model.model.decoder.project_out = model.model.decoder.project_out.to(dev) 
+    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+        model.model.decoder.project_in = model.model.decoder.project_in.to(dev) 
     layers[0] = layers[0].to(dev)
 
     dtype = next(iter(model.parameters())).dtype
@@ -56,8 +60,12 @@ def llama_sequential(model, dataloader, dev):
     layers[0] = layers[0].module
 
     layers[0] = layers[0].cpu()
-    model.model.embed_tokens = model.model.embed_tokens.cpu()
-    model.model.norm = model.model.norm.cpu()
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.cpu()
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.cpu()
+    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+        model.model.decoder.project_out = model.model.decoder.project_out.cpu()
+    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+        model.model.decoder.project_in = model.model.decoder.project_in.cpu()
     torch.cuda.empty_cache()
 
     outs = torch.zeros_like(inps)
@@ -68,6 +76,7 @@ def llama_sequential(model, dataloader, dev):
     quantizers = {}
     for i in range(len(layers)):
         layer = layers[i].to(dev)
+
         subset = find_layers(layer)
         gptq = {}
         for name in subset:
@@ -93,7 +102,7 @@ def llama_sequential(model, dataloader, dev):
             print(i, name)
             print('Quantizing ...')
             gptq[name].fasterquant(percdamp=args.percdamp, groupsize=args.groupsize)
-            quantizers['model.layers.%d.%s' % (i, name)] = gptq[name].quantizer
+            quantizers['model.decoder.layers.%d.%s' % (i, name)] = gptq[name].quantizer
             gptq[name].free()
         for j in range(args.nsamples):
             outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask)[0]
@@ -110,7 +119,7 @@ def llama_sequential(model, dataloader, dev):
     return quantizers
 
 @torch.no_grad()
-def llama_eval(model, testenc, dev):
+def opt_eval(model, testenc, dev):
     print('Evaluating ...')
 
     testenc = testenc.input_ids
@@ -118,9 +127,14 @@ def llama_eval(model, testenc, dev):
 
     use_cache = model.config.use_cache
     model.config.use_cache = False
-    layers = model.model.layers
+    layers = model.model.decoder.layers
 
-    model.model.embed_tokens = model.model.embed_tokens.to(dev)
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(dev)
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(dev)
+    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+        model.model.decoder.project_out = model.model.decoder.project_out.to(dev) 
+    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+        model.model.decoder.project_in = model.model.decoder.project_in.to(dev) 
     layers[0] = layers[0].to(dev)
 
     dtype = next(iter(model.parameters())).dtype
@@ -148,7 +162,12 @@ def llama_eval(model, testenc, dev):
     layers[0] = layers[0].module
 
     layers[0] = layers[0].cpu()
-    model.model.embed_tokens = model.model.embed_tokens.cpu()
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.cpu()
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.cpu()
+    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+        model.model.decoder.project_out = model.model.decoder.project_out.cpu()
+    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+        model.model.decoder.project_in = model.model.decoder.project_in.cpu()
     torch.cuda.empty_cache()
 
     outs = torch.zeros_like(inps)
@@ -157,7 +176,7 @@ def llama_eval(model, testenc, dev):
     for i in range(len(layers)):
         print(i)
         layer = layers[i].to(dev)
-        
+
         if args.nearest:
             subset = find_layers(layer)
             for name in subset:
@@ -178,16 +197,20 @@ def llama_eval(model, testenc, dev):
         torch.cuda.empty_cache()
         inps, outs = outs, inps
 
-    if model.model.norm is not None:
-        model.model.norm = model.model.norm.to(dev)
+    if model.model.decoder.final_layer_norm is not None:
+        model.model.decoder.final_layer_norm = model.model.decoder.final_layer_norm.to(dev)
+    if model.model.decoder.project_out is not None:
+        model.model.decoder.project_out = model.model.decoder.project_out.to(dev)
     model.lm_head = model.lm_head.to(dev)
 
     testenc = testenc.to(dev)
     nlls = []
     for i in range(nsamples):
         hidden_states = inps[i].unsqueeze(0)
-        if model.model.norm is not None:
-            hidden_states = model.model.norm(hidden_states)
+        if model.model.decoder.final_layer_norm is not None:
+            hidden_states = model.model.decoder.final_layer_norm(hidden_states)
+        if model.model.decoder.project_out is not None:
+            hidden_states = model.model.decoder.project_out(hidden_states)
         lm_logits = model.lm_head(hidden_states)
         shift_logits = lm_logits[:, :-1, :].contiguous()
         shift_labels = testenc[
@@ -203,7 +226,7 @@ def llama_eval(model, testenc, dev):
     model.config.use_cache = use_cache
 
 # TODO: perform packing on GPU
-def llama_pack(model, quantizers, wbits):
+def opt_pack(model, quantizers, wbits):
     layers = find_layers(model)
     layers = {n: layers[n] for n in quantizers}
     make_quant(model, quantizers, wbits)
@@ -217,8 +240,8 @@ def llama_pack(model, quantizers, wbits):
     return model
 
 def load_quant(model, checkpoint, wbits):
-    from transformers import LLaMAConfig, LLaMAForCausalLM 
-    config = LLaMAConfig.from_pretrained(model)
+    from transformers import OPTConfig, OPTForCausalLM 
+    config = OPTConfig.from_pretrained(model)
     def noop(*args, **kwargs):
         pass
     torch.nn.init.kaiming_uniform_ = noop 
@@ -228,26 +251,30 @@ def load_quant(model, checkpoint, wbits):
     torch.set_default_dtype(torch.half)
     transformers.modeling_utils._init_weights = False
     torch.set_default_dtype(torch.half)
-    model = LLaMAForCausalLM(config)
+    model = OPTForCausalLM(config)
     torch.set_default_dtype(torch.float)
     model = model.eval()
     layers = find_layers(model)
-    for name in ['lm_head']:
+    for name in ['model.decoder.project_out', 'model.decoder.project_in', 'lm_head']:
         if name in layers:
             del layers[name]
     make_quant(model, layers, wbits)
 
     print('Loading model ...')
     model.load_state_dict(torch.load(checkpoint))
-    model.seqlen = 2048
+    model.seqlen = model.config.max_position_embeddings
     print('Done.')
-
     return model
 
-def llama_multigpu(model, gpus):
-    model.model.embed_tokens = model.model.embed_tokens.to(gpus[0])
-    if hasattr(model.model, 'norm') and model.model.norm:
-        model.model.norm = model.model.norm.to(gpus[-1])
+def opt_multigpu(model, gpus):
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(gpus[0])
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(gpus[0])
+    if hasattr(model.model.decoder, 'project_in') and model.model.decoder.project_in:
+        model.model.decoder.project_in = model.model.decoder.project_in.to(gpus[0])
+    if hasattr(model.model.decoder, 'project_out') and model.model.decoder.project_out:
+        model.model.decoder.project_out = model.model.decoder.project_out.to(gpus[-1])
+    if hasattr(model.model.decoder, 'final_layer_norm') and model.model.decoder.final_layer_norm:
+        model.model.decoder.final_layer_norm = model.model.decoder.final_layer_norm.to(gpus[-1])
     import copy
     model.lm_head = copy.deepcopy(model.lm_head).to(gpus[-1])
 
@@ -268,7 +295,7 @@ def llama_multigpu(model, gpus):
             tmp = self.module(*inp, **kwargs)
             return tmp
 
-    layers = model.model.layers
+    layers = model.model.decoder.layers
     pergpu = math.ceil(len(layers) / len(gpus))
     for i in range(len(layers)):
         layers[i] = MoveModule(layers[i].to(gpus[i // pergpu]))
@@ -285,7 +312,7 @@ def benchmark(model, input_ids, check=False):
             if cache['past']:
                 cache['past'][i] = None
         return tmp
-    for i, layer in enumerate(model.model.layers):
+    for i, layer in enumerate(model.model.decoder.layers):
         layer.register_forward_hook(clear_past(i))
 
     print('Benchmarking ...')
@@ -300,7 +327,6 @@ def benchmark(model, input_ids, check=False):
                 torch.cuda.synchronize(gpu)
         else:
             torch.cuda.synchronize()
-    max_memory = 0
     with torch.no_grad():
         attention_mask = torch.ones((1, input_ids.numel()), device=DEV)
         times = []
@@ -314,7 +340,6 @@ def benchmark(model, input_ids, check=False):
             sync()
             times.append(time.time() - tick)
             print(i, times[-1])
-            max_memory = max(max_memory,torch.cuda.memory_allocated() / 1024 /1024)
             if check and i != input_ids.numel() - 1:
                 tot += loss(out.logits[0].to(DEV), input_ids[:, (i + 1)].to(DEV)).float()
             cache['past'] = list(out.past_key_values)
@@ -324,18 +349,17 @@ def benchmark(model, input_ids, check=False):
         print('Median:', np.median(times))
         if check:
             print('PPL:', torch.exp(tot / (input_ids.numel() - 1)).item())
-            print('max memory(MiB):',max_memory)
 
 
 if __name__ == '__main__':
     import argparse
-    from datautils import *
+    from .datautils import *
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         'model', type=str,
-        help='llama model to load'
+        help='OPT model to load; pass `facebook/opt-X`.'
     )
     parser.add_argument(
         'dataset', type=str, choices=['wikitext2', 'ptb', 'c4'],
@@ -387,7 +411,7 @@ if __name__ == '__main__':
     if args.load:
         model = load_quant(args.model, args.load, args.wbits)
     else:
-        model = get_llama(args.model)
+        model = get_opt(args.model)
         model.eval()
 
     dataloader, testloader = get_loaders(
@@ -396,13 +420,13 @@ if __name__ == '__main__':
 
     if not args.load and args.wbits < 16 and not args.nearest:
         tick = time.time()
-        quantizers = llama_sequential(model, dataloader, DEV)
+        quantizers = opt_sequential(model, dataloader, DEV)
         print(time.time() - tick)
 
     if args.benchmark:
         gpus = [torch.device('cuda:%d' % i) for i in range(torch.cuda.device_count())]
         if len(gpus) > 1:
-            llama_multigpu(model, gpus)
+            opt_multigpu(model, gpus)
         else:
             model = model.to(DEV)
         if args.benchmark:
@@ -416,8 +440,8 @@ if __name__ == '__main__':
             dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
         )
         print(dataset)
-        llama_eval(model, testloader, DEV)
+        opt_eval(model, testloader, DEV)
 
     if args.save:
-        llama_pack(model, quantizers, args.wbits)
+        opt_pack(model, quantizers, args.wbits)
         torch.save(model.state_dict(), args.save) 

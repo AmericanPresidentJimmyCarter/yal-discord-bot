@@ -3,9 +3,9 @@ import time
 import torch
 import torch.nn as nn
 
-from gptq import *
-from modelutils import *
-from quant import *
+from llama_engine.gptq import *
+from .modelutils import *
+from .quant import *
 
 from transformers import AutoTokenizer
 
@@ -53,7 +53,7 @@ def load_quant(model, checkpoint, wbits):
 
 if __name__ == '__main__':
     import argparse
-    from datautils import *
+    from .datautils import *
 
     parser = argparse.ArgumentParser()
 

@@ -5,9 +5,9 @@ import torch
 import torch.nn as nn
 import transformers
 
-from gptq import * 
-from modelutils import *
-from quant import *
+from .gptq import * 
+from .modelutils import *
+from .quant import *
 
 
 def get_bloom(model):
@@ -206,7 +206,7 @@ def bloom_eval(model, testenc, dev):
 
 if __name__ == '__main__':
     import argparse
-    from datautils import *
+    from .datautils import *
 
     parser = argparse.ArgumentParser()
 

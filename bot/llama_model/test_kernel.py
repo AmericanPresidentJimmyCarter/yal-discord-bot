@@ -67,7 +67,7 @@ print('Verifiying kernel correctness ...')
 M = 4096
 N = 11008
 
-from quant import *
+from .quant import *
 
 layer = nn.Linear(M, N)
 vec = torch.randn(B,L,M).to(DEV)

@@ -9,3 +9,6 @@ bot/quant_cuda.egg-info
 transformers
 dist
 build
+bot/llama_model/build
+bot/llama_model/dist
+bot/llama_model/quant_cuda.egg-info
