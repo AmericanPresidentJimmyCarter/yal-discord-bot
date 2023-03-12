@@ -6,3 +6,6 @@ temp_json/*
 __pycache__
 .vscode
 bot/quant_cuda.egg-info
+transformers
+dist
+build
