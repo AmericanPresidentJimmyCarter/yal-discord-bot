@@ -149,12 +149,12 @@ class ChatButtons(discord.ui.View):
         old_prompt_and_output = self.original_prompt_and_output()
 
         prompt = ''
+        final_prompt = ''
         if self.prompt_input_element.value: # type: ignore
             prompt = self.prompt_input_element.value # type: ignore
+            final_prompt = old_prompt_and_output + '\n' + prompt
         if prompt == '':
-            raise ValueError('Please enter a prompt to continue.')
-
-        final_prompt = old_prompt_and_output + '\n' + prompt
+            final_prompt = old_prompt_and_output
 
         settings_dict = self.original_prompt_settings()
 
