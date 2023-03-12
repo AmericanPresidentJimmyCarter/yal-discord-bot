@@ -137,7 +137,7 @@ async def run_prompt(
         f'Now beginning work on new prompt for <@{author_id}>. Please be patient until I finish that.')
     try:
         async with timeout(DEFAULT_ACTION_TIMEOUT_SECONDS):
-            output = context.llama_engine.predict_text(prompt, # type: ignore
+            output = await context.llama_engine.predict_text(prompt, # type: ignore
                 max_tokens, temperature, top_p)
 
             # Truncate to the last newline to make it more coherent.

@@ -72,7 +72,7 @@ class LlamaEngine():
         tokenizer = AutoTokenizer.from_pretrained(model_str)
         self.tokenizer = tokenizer
 
-    def predict_text(
+    async def predict_text(
         self,
         prompt: str,
         max_length: int,
