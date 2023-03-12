@@ -5,7 +5,7 @@
 
 A chatbot for Discord using Meta's LLaMA model, 4-bit quantized. The 13 billion parameters model fits within less than 9 GiB VRAM.
 
-![Yet Another LLaMA Diffusion Discord Bot Splash Image](https://github.com/AmericanPresidentJimmyCarter/yal-discord-bot/blob/master/examples/bot_test_image.png?raw=true)
+![Yet Another LLaMA Diffusion Discord Bot Splash Image](https://github.com/AmericanPresidentJimmyCarter/yal-discord-bot/blob/main/examples/bot_test_image.png?raw=true)
 
 
 ## Installation
