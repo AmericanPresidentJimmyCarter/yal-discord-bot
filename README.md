@@ -1,6 +1,12 @@
 # Yet Another LLaMA Discord Bot
 
 
+## What is this?
+
+A chatbot for Discord using Meta's LLaMA model, 4-bit quantized. The 13 billion parameters model fits within less than 9 GiB VRAM.
+
+![Yet Another LLaMA Diffusion Discord Bot Splash Image](https://github.com/AmericanPresidentJimmyCarter/yal-discord-bot/blob/master/examples/bot_test_image.png?raw=true)
+
 
 ## Installation
 
@@ -34,7 +40,7 @@ python setup_cuda.py install
 cd ../..
 ```
 
-5. Download the 4-bit quantized model somewhere.
+5. Download the 4-bit quantized model to somewhere local. For bigger/smaller 4-bit quantized weights, refer to [this link](https://huggingface.co/decapoda-research/).
 
 ```bash
 wget https://huggingface.co/decapoda-research/llama-13b-hf-int4/resolve/main/llama-13b-4bit.pt
