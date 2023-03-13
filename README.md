@@ -26,8 +26,9 @@ pip install -r requirements.txt
 3. Setup transformers fork and ignore any version incompatibility errors when you do this.
 
 ```bash
-git clone -b llama_push https://github.com/zphang/transformers/
+git clone https://github.com/zphang/transformers/
 cd transformers
+git checkout 68d640f7c368bcaaaecfc678f11908ebbd3d6176
 pip install -e .
 cd ..
 ```
