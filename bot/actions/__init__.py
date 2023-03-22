@@ -46,7 +46,7 @@ def create_embed_for_prompt_and_response(
     embed = discord.Embed()
     prompt_truncated = prompt
 
-    if is_alpaca and not input_string is None:
+    if is_alpaca and input_string is None:
         prompt_truncated = prompt_truncated.replace(ALPACA_PREFIX_NO_INPUT_STRING, '')
         prompt_truncated = prompt_truncated.replace(ALPACA_INSTRUCT_STRING, '')
         prompt_truncated = prompt_truncated.replace(ALPACA_ANSWER_STRING, '')
