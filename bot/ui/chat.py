@@ -8,6 +8,9 @@ import discord
 import actions
 
 from constants import (
+    ALPACA_ANSWER_STRING,
+    ALPACA_INSTRUCT_STRING,
+    ALPACA_PREFIX_NO_INPUT_STRING,
     BUTTON_STORE_CHAT_BUTTONS_KEY,
     JSON_CHAT_FILE_FN,
 )
@@ -150,11 +153,29 @@ class ChatButtons(discord.ui.View):
 
         prompt = ''
         final_prompt = ''
-        if self.prompt_input_element.value: # type: ignore
-            prompt = self.prompt_input_element.value # type: ignore
-            final_prompt = old_prompt_and_output + '\n' + prompt
-        if prompt == '':
-            final_prompt = old_prompt_and_output
+        if self.context.cli_args.alpaca:
+            idx_original_prompt = old_prompt_and_output.find(ALPACA_ANSWER_STRING)
+            original_prompt = old_prompt_and_output[
+                :idx_original_prompt+len(ALPACA_ANSWER_STRING)]
+            idx_original_answer = old_prompt_and_output.rfind(ALPACA_ANSWER_STRING)
+            original_answer = old_prompt_and_output[
+                idx_original_answer+len(ALPACA_ANSWER_STRING):]
+            if self.prompt_input_element.value: # type: ignore
+                prompt = self.prompt_input_element.value # type: ignore
+                prompt = ALPACA_INSTRUCT_STRING + prompt + ALPACA_ANSWER_STRING
+                prompt = ALPACA_PREFIX_NO_INPUT_STRING + prompt
+
+                final_prompt = original_prompt + '\n' + original_answer[:-1] + '\n' + prompt
+            if prompt == '':
+                final_prompt = original_prompt + '\n' + original_answer[:-1]
+        else:
+            if self.prompt_input_element.value: # type: ignore
+                prompt = self.prompt_input_element.value # type: ignore
+                final_prompt = old_prompt_and_output + '\n' + prompt
+            if prompt == '':
+                final_prompt = old_prompt_and_output
+
+        print('final prompt:\n', final_prompt)
 
         settings_dict = self.original_prompt_settings()
 
@@ -164,6 +185,7 @@ class ChatButtons(discord.ui.View):
             interaction.user,
             self.context, # type: ignore
             final_prompt,
+            bypass_alpaca_formatting=True,
             max_tokens=settings_dict['max_tokens'], # type: ignore
             temperature=settings_dict['temperature'], # type: ignore
             top_p=settings_dict['top_p']) # type: ignore

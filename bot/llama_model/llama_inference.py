@@ -23,7 +23,7 @@ def get_llama(model):
     model.seqlen = 2048
     return model
 
-def load_quant(model, checkpoint, wbits):
+def load_quant(model, checkpoint, wbits, groupsize):
     from transformers import LLaMAConfig, LLaMAForCausalLM 
     config = LLaMAConfig.from_pretrained(model)
     def noop(*args, **kwargs):
@@ -42,10 +42,14 @@ def load_quant(model, checkpoint, wbits):
     for name in ['lm_head']:
         if name in layers:
             del layers[name]
-    make_quant(model, layers, wbits)
+    make_quant(model, layers, wbits, groupsize)
 
     print('Loading model ...')
-    model.load_state_dict(torch.load(checkpoint))
+    if checkpoint.endswith('.safetensors'):
+        from safetensors.torch import load_file as safe_load
+        model.load_state_dict(safe_load(checkpoint))
+    else:
+        model.load_state_dict(torch.load(checkpoint))
     model.seqlen = 2048
     print('Done.')
 
@@ -53,7 +57,7 @@ def load_quant(model, checkpoint, wbits):
 
 if __name__ == '__main__':
     import argparse
-    from .datautils import *
+    from datautils import *
 
     parser = argparse.ArgumentParser()
 
@@ -64,6 +68,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--wbits', type=int, default=16, choices=[2, 3, 4, 8, 16],
         help='#bits to use for quantization; use 16 for evaluating base model.'
+    )
+    parser.add_argument(
+        '--groupsize', type=int, default=-1,
+        help='Groupsize to use for quantization; default uses full row.'
     )
     parser.add_argument(
         '--load', type=str, default='',
@@ -97,8 +105,11 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
+    if type(args.load) is not str:
+        args.load = args.load.as_posix()
+    
     if args.load:
-        model = load_quant(args.model, args.load, args.wbits)
+        model = load_quant(args.model, args.load, args.wbits, args.groupsize)
     else:
         model = get_llama(args.model)
         model.eval()

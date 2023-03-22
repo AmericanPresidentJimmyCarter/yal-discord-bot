@@ -15,7 +15,6 @@ torch.backends.cudnn.allow_tf32 = False
 
 
 class GPTQ:
-
     def __init__(self, layer):
         self.layer = layer
         self.dev = self.layer.weight.device
@@ -58,7 +57,7 @@ class GPTQ:
         self.H += inp.matmul(inp.t())
 
     def fasterquant(
-        self, blocksize=128, percdamp=.01, groupsize=-1
+        self, blocksize=128, percdamp=.01, groupsize=-1, actorder=False
     ):
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
@@ -77,6 +76,11 @@ class GPTQ:
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         W[:, dead] = 0
+        
+        if actorder:
+            perm = torch.argsort(torch.diag(H), descending=True)
+            W = W[:, perm]
+            H = H[perm][:, perm]
 
         Losses = torch.zeros_like(W)
         Q = torch.zeros_like(W)
@@ -88,6 +92,10 @@ class GPTQ:
         H = torch.cholesky_inverse(H)
         H = torch.linalg.cholesky(H, upper=True)
         Hinv = H
+        
+        scale = []
+        zero = []
+        now_idx = 1
 
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
@@ -106,6 +114,11 @@ class GPTQ:
                 if groupsize != -1:
                     if (i1 + i) % groupsize == 0:
                         self.quantizer.find_params(W[:, (i1 + i):(i1 + i + groupsize)], weight=True)
+                    
+                    if ((i1 + i) // groupsize) - now_idx == -1:
+                        scale.append(self.quantizer.scale)
+                        zero.append(self.quantizer.zero)
+                        now_idx += 1
 
                 q = quantize(
                     w.unsqueeze(1), self.quantizer.scale, self.quantizer.zero, self.quantizer.maxq
@@ -131,13 +144,24 @@ class GPTQ:
         torch.cuda.synchronize()
         print('time %.2f' % (time.time() - tick))
         print('error', torch.sum(Losses).item())
+        
+        if actorder:
+            invperm = torch.argsort(perm)
+            Q = Q[:, invperm]
 
         if isinstance(self.layer, transformers.Conv1D):
             Q = Q.t()
         self.layer.weight.data = Q.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
         if DEBUG:
             print(torch.sum((self.layer(self.inp1) - self.out1) ** 2))
-
+            
+        if scale == []:
+            scale.append(self.quantizer.scale)
+            zero.append(self.quantizer.zero)
+        scale = torch.cat(scale,dim=1)
+        zero = torch.cat(zero,dim=1)
+        return scale,zero
+            
     def free(self):
         if DEBUG:
             self.inp1 = None

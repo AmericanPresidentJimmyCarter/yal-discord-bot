@@ -13,4 +13,5 @@ def find_layers(module, layers=[nn.Conv2d, nn.Linear], name=''):
         res.update(find_layers(
             child, layers=layers, name=name + '.' + name1 if name != '' else name1
         ))
+
     return res

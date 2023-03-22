@@ -2,11 +2,6 @@ import numpy as np
 import torch
 
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-
-
 def get_wikitext2(nsamples, seed, seqlen, model):
     from datasets import load_dataset
     traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')

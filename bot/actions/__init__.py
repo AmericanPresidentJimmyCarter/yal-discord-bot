@@ -7,6 +7,7 @@ import discord
 from async_timeout import timeout
 
 from constants import (
+    ALPACA_EXTRA_MYSTERY_LINE,
     ALPACA_PREFIX_NO_INPUT_STRING,
     ALPACA_PREFIX_INPUT_STRING,
     ALPACA_INSTRUCT_STRING,
@@ -44,7 +45,12 @@ def create_embed_for_prompt_and_response(
     is_alpaca: bool=False,
 ) -> discord.Embed:
     embed = discord.Embed()
-    prompt_truncated = prompt
+    prompt_truncated = prompt.replace(ALPACA_EXTRA_MYSTERY_LINE, '')
+
+    if is_alpaca:
+        output_start_idx_actual = output.rfind(ALPACA_ANSWER_STRING)
+        if output_start_idx_actual > -1:
+            output = output[output_start_idx_actual+len(ALPACA_ANSWER_STRING):]
 
     if is_alpaca and input_string is None:
         prompt_truncated = prompt_truncated.replace(ALPACA_PREFIX_NO_INPUT_STRING, '')
@@ -71,15 +77,15 @@ def create_embed_for_prompt_and_response(
     ]
 
     if len(output_chunks) == 1:
-        output_truncated_with_spaces = output_truncated.replace(' ', ' ')
-        embed.add_field(name='Output', value=output_truncated_with_spaces,
+        # output_truncated_with_spaces = output_truncated.replace(' ', ' ')
+        embed.add_field(name='Output', value=output_truncated,
             inline=False)
     else:
         for idx, chunk in enumerate(output_chunks):
-            chunk_with_spaces = chunk.replace(' ', ' ')
+            # chunk_with_spaces = chunk.replace(' ', ' ')
             embed.add_field(
                 name='Output' if not idx else 'Continued Output',
-                value=chunk_with_spaces,
+                value=chunk,
                 inline=False)
 
     return embed
@@ -131,6 +137,7 @@ async def run_prompt(
 
     prompt: str,
 
+    bypass_alpaca_formatting: bool=False,
     input_string: str|None=None,
     max_tokens: int=DEFAULT_MAX_TOKENS,
     temperature: float=DEFAULT_TEMPERATURE,
@@ -156,11 +163,17 @@ async def run_prompt(
         queue_message):
         return
 
-    if '### Input:' not in prompt and context.cli_args.alpaca and input_string is None: # type: ignore
+    if '### Input:' not in prompt and \
+        context.cli_args.alpaca and \
+        input_string is None and \
+        not bypass_alpaca_formatting:
         prompt = ALPACA_INSTRUCT_STRING + prompt + ALPACA_ANSWER_STRING
         prompt = ALPACA_PREFIX_NO_INPUT_STRING + prompt
 
-    if '### Input:' not in prompt and context.cli_args.alpaca and input_string is not None: # type: ignore
+    if '### Input:' not in prompt and \
+        context.cli_args.alpaca and \
+        input_string is not None and \
+        not bypass_alpaca_formatting: # type: ignore
         prompt = ALPACA_INSTRUCT_STRING + prompt + \
             ALPACA_INPUT_STRING + input_string + \
             ALPACA_ANSWER_STRING
@@ -181,11 +194,6 @@ async def run_prompt(
 
                 output = await context.llama_engine.predict_text(prompt, # type: ignore
                     max_tokens, temperature, top_p)
-
-                # Truncate to the last newline to make it more coherent.
-                # last_newline_idx = output.rfind('\n')
-                # if last_newline_idx > -1 and len(output[:last_newline_idx]) > 0:
-                #     output = output[:last_newline_idx]
 
                 tries += 1
 

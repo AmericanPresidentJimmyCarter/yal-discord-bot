@@ -52,6 +52,10 @@ parser.add_argument(
     help='Bit width to use for quantization of llama',
 )
 parser.add_argument(
+    '--groupsize', dest='groupsize', type=int, default=-1,
+    help='Group size to use for quantization of llama (default=-1)',
+)
+parser.add_argument(
     '--load-checkpoint', dest='load_checkpoint', type=str, default='',
     help='Load quantized model checkpoint',
 )
@@ -174,6 +178,7 @@ llama_engine = LlamaEngine(
     args.llama_model,
     args.load_checkpoint,
     args.wbits,
+    args.groupsize,
     args.torch_device,
 )
 
