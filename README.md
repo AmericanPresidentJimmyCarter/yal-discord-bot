@@ -54,7 +54,7 @@ cd bot
 python -m bot $YOUR_BOT_TOKEN --allow-queue -g $YOUR_GUILD --llama-model="decapoda-research/llama-13b-hf" --load-checkpoint="path/to/llama/weights/llama-13b-4bit.pt"
 ```
 
-Ensure that `$YOUR_BOT_TOKEN` and `$YOUR_GUILD` are set to what they should be, and `--load-checkpoint="path/to/llama/weights/llama-13b-4bit.pt"` is pointing at the correct location of the weights.
+Ensure that `$YOUR_BOT_TOKEN` and `$YOUR_GUILD` are set to what they should be, `--load-checkpoint=..."` is pointing at the correct location of the weights, and `--llama-model=...` is pointing at the correct location in Huggingface to find the configuration for the weights.
 
 ## Using an ALPACA model
 
@@ -64,5 +64,12 @@ Recommended 4-bit ALPACA weights are as follows:
 
 - [13b (elinas/alpaca-13b-lora-int4)](https://huggingface.co/elinas/alpaca-13b-lora-int4)
 - [30b (elinas/alpaca-30b-lora-int4)](https://huggingface.co/elinas/alpaca-30b-lora-int4)
+
+```bash
+cd bot
+python -m bot $YOUR_BOT_TOKEN --allow-queue -g $YOUR_GUILD --alpaca --llama-model="decapoda-research/llama-13b-hf" --load-checkpoint="path/to/alpaca/weights/alpaca-13b-4bit.pt"
+```
+
+Note that you still have to use the old configuration at `--llama-model="decapoda-research/llama-13b-hf"` because that is the configuration that the old version of GPTQ/transformers I cloned works with.
 
 (c) 2023 AmericanPresidentJimmyCarter
