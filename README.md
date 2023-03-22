@@ -58,6 +58,11 @@ Ensure that `$YOUR_BOT_TOKEN` and `$YOUR_GUILD` are set to what they should be, 
 
 ## Using an ALPACA model
 
-You can use any ALPACA model by setting the `--alpaca` flag, which will pre-generate your
+You can use any ALPACA model by setting the `--alpaca` flag, which will allow you to add input strings as well as automatically format your prompt into the form expected by ALPACA.
+
+Recommended 4-bit ALPACA weights are as follows:
+
+- [13b (elinas/alpaca-13b-lora-int4)](https://huggingface.co/elinas/alpaca-13b-lora-int4)
+- [30b (elinas/alpaca-30b-lora-int4)](https://huggingface.co/elinas/alpaca-30b-lora-int4)
 
 (c) 2023 AmericanPresidentJimmyCarter
