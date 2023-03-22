@@ -7,6 +7,11 @@ import discord
 from async_timeout import timeout
 
 from constants import (
+    ALPACA_PREFIX_NO_INPUT_STRING,
+    ALPACA_PREFIX_INPUT_STRING,
+    ALPACA_INSTRUCT_STRING,
+    ALPACA_INPUT_STRING,
+    ALPACA_ANSWER_STRING,
     DEFAULT_ACTION_TIMEOUT_SECONDS,
     DISCORD_EMBED_MAX_LENGTH,
     DISCORD_MESSAGE_MAX_LENGTH,
@@ -35,11 +40,25 @@ if TYPE_CHECKING:
 def create_embed_for_prompt_and_response(
     prompt: str,
     output: str,
+    input_string: str|None=None,
+    is_alpaca: bool=False,
 ) -> discord.Embed:
     embed = discord.Embed()
     prompt_truncated = prompt
+
+    if is_alpaca and not input_string is None:
+        prompt_truncated = prompt_truncated.replace(ALPACA_PREFIX_NO_INPUT_STRING, '')
+        prompt_truncated = prompt_truncated.replace(ALPACA_INSTRUCT_STRING, '')
+        prompt_truncated = prompt_truncated.replace(ALPACA_ANSWER_STRING, '')
+    if is_alpaca and input_string is not None:
+        prompt_truncated = prompt_truncated.replace(ALPACA_PREFIX_INPUT_STRING, '')
+        prompt_truncated = prompt_truncated.replace(ALPACA_INPUT_STRING, '\n\n')
+        prompt_truncated = prompt_truncated.replace(ALPACA_INSTRUCT_STRING, '')
+        prompt_truncated = prompt_truncated.replace(ALPACA_ANSWER_STRING, '')
+
     if len(prompt) > PROMPT_IN_TRUNCATION_LENGTH:
         prompt_truncated = '...' + prompt[-PROMPT_IN_TRUNCATION_LENGTH:]
+
     embed.add_field(name='Prompt', value=prompt_truncated, inline=False)
 
     output_truncated = output
@@ -109,6 +128,7 @@ async def run_prompt(
 
     prompt: str,
 
+    input_string: str|None=None,
     max_tokens: int=DEFAULT_MAX_TOKENS,
     temperature: float=DEFAULT_TEMPERATURE,
     top_p: float=DEFAULT_TOP_P,
@@ -133,19 +153,42 @@ async def run_prompt(
         queue_message):
         return
 
+    if '### Input:' not in prompt and context.cli_args.alpaca and input_string is None: # type: ignore
+        prompt = ALPACA_INSTRUCT_STRING + prompt + ALPACA_ANSWER_STRING
+        prompt = ALPACA_PREFIX_NO_INPUT_STRING + prompt
+
+    if '### Input:' not in prompt and context.cli_args.alpaca and input_string is not None: # type: ignore
+        prompt = ALPACA_INSTRUCT_STRING + prompt + \
+            ALPACA_INPUT_STRING + input_string + \
+            ALPACA_ANSWER_STRING
+        prompt = ALPACA_PREFIX_INPUT_STRING + prompt
+
     work_msg = await channel.send(
         f'Now beginning work on new prompt for <@{author_id}>. Please be patient until I finish that.')
     try:
         async with timeout(DEFAULT_ACTION_TIMEOUT_SECONDS):
-            output = await context.llama_engine.predict_text(prompt, # type: ignore
-                max_tokens, temperature, top_p)
+            output = prompt
+            tries = 0
 
-            # Truncate to the last newline to make it more coherent.
-            last_newline_idx = output.rfind('\n')
-            if last_newline_idx > -1 and len(output[:last_newline_idx]) > 0:
-                output = output[:last_newline_idx]
+            # Try to ignore it when it simply yield EOT for some input.
+            while output == prompt:
+                if tries >= 5:
+                    output = 'Sorry, I don\'t know how to answer this prompt.'
+                    break
 
-            output_embed = create_embed_for_prompt_and_response(prompt, output)
+                output = await context.llama_engine.predict_text(prompt, # type: ignore
+                    max_tokens, temperature, top_p)
+
+                # Truncate to the last newline to make it more coherent.
+                # last_newline_idx = output.rfind('\n')
+                # if last_newline_idx > -1 and len(output[:last_newline_idx]) > 0:
+                #     output = output[:last_newline_idx]
+
+                tries += 1
+
+            output_embed = create_embed_for_prompt_and_response(prompt, output,
+                input_string=input_string,
+                is_alpaca=context.cli_args.alpaca) # type: ignore
 
             serialize_to_json_and_store_request(prompt, output, short_id,
                 user.id,

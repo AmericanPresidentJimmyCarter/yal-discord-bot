@@ -30,3 +30,9 @@ TOP_P_MAX = 10.0
 DEFAULT_MAX_TOKENS = 256
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_TOP_P = 0.95
+
+ALPACA_PREFIX_NO_INPUT_STRING = 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n'
+ALPACA_PREFIX_INPUT_STRING = 'Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n'
+ALPACA_INSTRUCT_STRING = '### Instruction:\n'
+ALPACA_INPUT_STRING = '\n\n### Input:\n'
+ALPACA_ANSWER_STRING = '\n\n### Response:\n'

@@ -91,6 +91,10 @@ parser.add_argument('--restrict-slash-to-channel',
     dest='restrict_slash_to_channel',
     help='Restrict slash commands to a specific channel',
     type=int, required=False)
+parser.add_argument(
+    '--alpaca', dest='alpaca', action='store_true',
+    help='Torch device to load model onto',
+)
 args = parser.parse_args()
 
 if args.load_checkpoint is None or args.load_checkpoint == '':
@@ -185,11 +189,15 @@ client = YALClient(
     prompt_check_fn=prompt_check_fn,
 )
 
+model_string = 'LLaMA'
+if args.alpaca:
+    model_string = 'ALPACA'
 
 @client.tree.command(
-    description='Run a text prompt through LLaMA"',
+    description=f'Run a text prompt through {model_string}',
 )
 @app_commands.describe(
+    instruction_input='Input string for prompt instruction (ALPACA only)',
     max_tokens=f'Maximum number of tokens to generate (100 to 2000, default={args.default_tokens})',
     temperature='Temperature to use while generating (default=0.8)',
     top_p='Top probability of tokens to select from (default=0.95)',
@@ -198,6 +206,8 @@ async def chat(
     interaction: discord.Interaction,
 
     prompt: str,
+
+    instruction_input: Optional[str] = None,
     max_tokens: Optional[app_commands.Range[int, MAX_TOKENS_MIN, MAX_TOKENS_MAX]] = DEFAULT_MAX_TOKENS,
     temperature: Optional[app_commands.Range[float, TEMPERATURE_MIN, TEMPERATURE_MAX]] = DEFAULT_TEMPERATURE,
     top_p: Optional[app_commands.Range[float, TOP_P_MIN, TOP_P_MAX]] = DEFAULT_TOP_P,
@@ -206,12 +216,19 @@ async def chat(
 
     if args.restrict_slash_to_channel:
         if interaction.channel.id != args.restrict_slash_to_channel:
-            await interaction.followup.send('You are not allowed to use this in this channel!')
+            await interaction.followup.send('You are not allowed to use ' +
+                'this in this channel!')
             return
+
+    if isinstance(instruction_input, str) and not args.alpaca:
+        await interaction.followup.send('Using input for instructions ' +
+            'requires ALPACA mode to be on')
+        return
 
     sid = await actions.run_prompt(
         interaction.channel, interaction.user, client, prompt,
         max_tokens=max_tokens,
+        input_string=instruction_input,
         temperature=temperature,
         top_p=top_p)
     if sid is None:

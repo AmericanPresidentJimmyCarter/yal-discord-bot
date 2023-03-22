@@ -56,4 +56,8 @@ python -m bot $YOUR_BOT_TOKEN --allow-queue -g $YOUR_GUILD --llama-model="decapo
 
 Ensure that `$YOUR_BOT_TOKEN` and `$YOUR_GUILD` are set to what they should be, and `--load-checkpoint="path/to/llama/weights/llama-13b-4bit.pt"` is pointing at the correct location of the weights.
 
+## Using an ALPACA model
+
+You can use any ALPACA model by setting the `--alpaca` flag, which will pre-generate your
+
 (c) 2023 AmericanPresidentJimmyCarter
