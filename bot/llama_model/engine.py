@@ -1,3 +1,4 @@
+import gc
 import time
 
 import torch
@@ -93,4 +94,11 @@ class LlamaEngine():
                 temperature=temperature,
             )
         output = self.tokenizer.decode([el.item() for el in generated_ids[0]])
+
+        mem = torch.cuda.memory_allocated() / 1e6
+        del generated_ids, input_ids
+        gc.collect()
+        torch.cuda.empty_cache()
+        while torch.cuda.memory_allocated() / 1e6 >= mem:
+            time.sleep(1)
         return output
