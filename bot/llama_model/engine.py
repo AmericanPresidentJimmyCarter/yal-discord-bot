@@ -67,8 +67,7 @@ class LlamaEngine():
         DEV = torch.device(device)
         self.device = DEV
         model = load_quant(model_str, checkpoint, wbits)
-            
-        model.to(DEV)
+
         self.model = model
         tokenizer = AutoTokenizer.from_pretrained(model_str)
         self.tokenizer = tokenizer
@@ -80,6 +79,7 @@ class LlamaEngine():
         temperature: float,
         top_p: float,
     ) -> str:
+        self.model.to(self.device)
         input_ids = self.tokenizer.encode(prompt, return_tensors="pt") \
             .to(self.device)
         input_ids = input_ids[-MAX_TOKEN_WINDOW:]
@@ -95,6 +95,7 @@ class LlamaEngine():
             )
         output = self.tokenizer.decode([el.item() for el in generated_ids[0]])
 
+        self.model.to('cpu')
         mem = torch.cuda.memory_allocated() / 1e6
         del generated_ids, input_ids
         gc.collect()

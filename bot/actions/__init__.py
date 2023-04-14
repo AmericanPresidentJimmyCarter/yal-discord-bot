@@ -71,12 +71,15 @@ def create_embed_for_prompt_and_response(
     ]
 
     if len(output_chunks) == 1:
-        embed.add_field(name='Output', value=output_truncated, inline=False)
+        output_truncated_with_spaces = output_truncated.replace(' ', ' ')
+        embed.add_field(name='Output', value=output_truncated_with_spaces,
+            inline=False)
     else:
         for idx, chunk in enumerate(output_chunks):
+            chunk_with_spaces = chunk.replace(' ', ' ')
             embed.add_field(
                 name='Output' if not idx else 'Continued Output',
-                value=chunk,
+                value=chunk_with_spaces,
                 inline=False)
 
     return embed
