@@ -10,6 +10,8 @@ A chatbot for Discord using Meta's LLaMA model, 4-bit quantized. The 13 billion 
 
 ## Installation
 
+Before you do any of this, you will need a bot token. If you don't have a bot token, follow [this guide to make a bot](https://www.writebots.com/discord-bot-token/) and then add the bot to your server.
+
 Presently this is Linux only, but you might be able to make it work with other OSs.
 
 1. Make sure you have Python 3.10+, virtualenv (`pip install virtualenv`), and CUDA installed.
@@ -55,6 +57,7 @@ python -m bot $YOUR_BOT_TOKEN --allow-queue -g $YOUR_GUILD --llama-model="Neko-I
 ```
 
 Ensure that `$YOUR_BOT_TOKEN` and `$YOUR_GUILD` are set to what they should be, `--load-checkpoint=..."` is pointing at the correct location of the weights, and `--llama-model=...` is pointing at the correct location in Huggingface to find the configuration for the weights.
+
 
 ## Using an ALPACA model (Recommended)
 
